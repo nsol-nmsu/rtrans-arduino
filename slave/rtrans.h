@@ -1,9 +1,21 @@
 #ifndef _rtrans_h_
 #define _rtrans_h_
 
+#include "XBee.h"
+#include "ringbuffer.h"
+#include "SoftwareSerial.h"
+#include <stdint.h>
+
 /* Retransmit limit and timeout */
 #define RTRANS_RETX_LIMIT       (4)
 #define RTRANS_RETX_TIMEOUT     (120)
+
+/* Packet and window sizes */
+#define RTRANS_PACKET_SIZE      (100)
+#define RTRANS_PAYLOAD_SIZE     (RTRANS_PACKET_SIZE - sizeof(rt_out_header))
+#define RTRANS_MAX_SEGMENTS     (12)
+#define RTRANS_PACKET_BUFFER    (RTRANS_MAX_SEGMENTS * RTRANS_PACKET_SIZE)
+#define RTRANS_PAYLOAD_BUFFER   (RTRANS_MAX_SEGMENTS * RTRANS_PAYLOAD_SIZE)
 
 /* Special uuid for no master configured */
 #define RTRANS_NO_MASTER        (0xffff)
@@ -42,10 +54,10 @@ typedef void (*rt_callback)(rt_in_header header, uint8_t payload[]);
 
 /* Driver FSM states */
 typedef enum {
-        RT_INIT,   // not paired to a master node
-        RT_JOIN,   // waiting for ACK to JOIN message
-        RT_IDLE,   // idle, waiting for POLL
-        RT_DATA    // waiting for ACK from a DATA message
+        RT_STATE_INIT,   // not paired to a master node
+        RT_STATE_JOIN,   // waiting for ACK to JOIN message
+        RT_STATE_IDLE,   // idle, waiting for POLL
+        RT_STATE_DATA    // waiting for ACK from a DATA message
 } rt_fsm;
 
 /* Driver state and data */
@@ -58,7 +70,12 @@ typedef struct rt_state_s {
         
         rt_fsm          state;
         uint8_t         retx_ct;
-        uint8_t         
+        uint8_t         tx_pkg_no;
+        uint8_t         tx_wait_pkg;
+        uint8_t         tx_wait_seg;   
+        
+        ringbuffer      tx_queue;
+        ringbuffer      rx_queue;
 } rt_state;
 
 #endif
