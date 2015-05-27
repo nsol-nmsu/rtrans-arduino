@@ -25,6 +25,17 @@ size_t rb_get(ringbuffer *rb, uint8_t *buffer, size_t n){
         }
 }
 
+size_t rb_del(ringbuffer *rb, size_t n){
+        if (n > rb->avail) {
+                return 0;
+        }
+        else{
+                rb->start = (rb->start + n) % rb->size;
+                rb->avail -= n;
+                return n;
+        }
+}
+
 size_t rb_peek(const ringbuffer *rb, uint8_t *buffer, size_t n){
         if (n > rb->avail) {
                 return 0;

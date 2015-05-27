@@ -30,4 +30,9 @@ inline size_t rb_peek(const ringbuffer *rb, uint8_t *buffer, size_t n);
 */
 inline size_t rb_put(ringbuffer *rb, const uint8_t *buffer, size_t n);
 
+/* Remove n bytes from the ringbuffer.
+   Returns 0 if there are less than n bytes available.
+*/
+inline size_t rb_del(ringbuffer *rb, size_t n);
+
 #endif
