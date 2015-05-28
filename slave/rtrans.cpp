@@ -1,4 +1,5 @@
 #include "rtrans.h"
+#include "ringbuffer.h"
 
 /* Local symbols */
 rt_state rtrans_state;
@@ -96,8 +97,8 @@ rt_state *rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
         rtrans_state.xbee.setSerial(xbee_serial);
         
         /* Initialize buffers */
-        rtrans_state.tx_queue = rb_init(rtrans_tx_buffer, RTRANS_PAYLOAD_BUFFER);
-        rtrans_state.rx_queue = rb_init(rtrans_rx_buffer, RTRANS_PAYLOAD_BUFFER);
+        rb_init(&rtrans_state.tx_queue, rtrans_tx_buffer, RTRANS_PAYLOAD_BUFFER);
+        rb_init(&rtrans_state.rx_queue, rtrans_rx_buffer, RTRANS_PAYLOAD_BUFFER);
         
         /* Ask the XBee for our address */
         uint8_t at_cmd[] = {'M','Y'};
