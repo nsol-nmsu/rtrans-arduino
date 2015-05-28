@@ -7,7 +7,12 @@ uint8_t rtrans_rx_buffer[RTRANS_PAYLOAD_BUFFER];
 
 /** Handle an event which affects the state machine */
 void rt_fsm_event(uint8_t type, const void *data){
-        // TODO
+        switch(type){
+                case RTRANS_TYPE_ACK:
+                        break;
+                case RTRANS_TYPE_NAK:
+                        break;
+        }
 }
 
 /** Add an event to the callback queue */
@@ -77,11 +82,15 @@ uint8_t rt_read_incoming(rt_state *state, unsigned char *at_buffer, size_t at_le
 /** Initializes the XBee and the rtrans driver
     Params:
       rt_serial: the SoftwareSerial object to use to communicate with the XBee
+      cb_func:   the callback function which will receive PROBE/POLL/SET events
     Returns:
       A pointer to the initialized rt_state object
 */
-rt_state *rt_init(SoftwareSerial xbee_serial){
+rt_state *rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
         uint8_t at_response[8];
+        
+        /* Nullify the struct */
+        memset(&rtrans_state, 0, sizeof(rt_state));
         
         /* Initialize the XBee driver on the given serial interface */
         rtrans_state.xbee.setSerial(xbee_serial);
@@ -103,4 +112,11 @@ rt_state *rt_init(SoftwareSerial xbee_serial){
         return &rtrans_state;
 }
 
-
+/** Handles all of the processing of the rtrans driver. You should be calling
+    this function once in the main arduino loop() subroutine.
+    Params:
+      rt: pointer to the rt_state you have initialized
+*/
+void rt_loop(rt_state *rt){
+        
+}
