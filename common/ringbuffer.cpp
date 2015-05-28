@@ -1,13 +1,10 @@
 #include "ringbuffer.h"
 
-ringbuffer rb_init(uint8_t *buffer, size_t len){
-        ringbuffer rb = {
-                .buf   = buffer,
-                .size  = len,
-                .start = 0,
-                .avail = 0
-        };
-        return rb;
+void rb_init(ringbuffer* rb, uint8_t *buffer, size_t len){
+        rb->buf   = buffer;
+        rb->size  = len;
+        rb->start = 0;
+        rb->avail = 0;
 }
 
 size_t rb_get(ringbuffer *rb, uint8_t *buffer, size_t n){
