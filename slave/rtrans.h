@@ -71,11 +71,19 @@ typedef struct rt_state_s {
         rt_fsm          state;
         uint8_t         retx_ct;
         uint8_t         tx_pkg_no;
+        
+        bool            tx_waiting;
         uint8_t         tx_wait_pkg;
         uint8_t         tx_wait_seg;   
         
         ringbuffer      tx_queue;
         ringbuffer      rx_queue;
 } rt_state;
+
+/* Initialization function */
+rt_state *rt_init(SoftwareSerial xbee_serial, rt_callback cb_func);
+
+/* Loop processing function */
+void rt_loop(rt_state *rt);
 
 #endif
