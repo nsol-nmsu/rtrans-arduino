@@ -16,9 +16,30 @@ void rt_fsm_event(uint8_t type, const void *data){
         }
 }
 
+/** Send an ACK (immediate) */
+void rt_ack_packet(const rt_out_header *pkt){
+        // TODO
+}
+
 /** Add an event to the callback queue */
 void rt_queue_incoming(const rt_out_header *pkt){
-        // TODO
+        // Build abbreviated header
+        rt_in_header  hdr_tmp = {
+                .master = pkt->master,
+                .slave  = pkt->slave,
+                .type   = pkt->type,
+                .len    = pkt->len
+        };
+
+        // Copy header to ringbuffer
+        if(rb_put(&rtrans_state.rx_queue, (const uint8_t *) &hdr_tmp, sizeof(rt_in_header)) != sizeof(rt_in_header)){
+                // TODO: handle error (rx queue full)
+        }
+        
+        // Copy payload to ringbuffer
+        if(rb_put(&rtrans_state.rx_queue, ((const uint8_t *) &hdr_tmp) + sizeof(rt_out_header), pkt->len) != pkt->len){
+                // TODO: handle error (rx queue full)
+        }
 }
 
 /** Process incoming packet */
@@ -28,7 +49,8 @@ void rt_handle_incoming(const unsigned char *data){
                 case RTRANS_TYPE_PROBE:
                 case RTRANS_TYPE_POLL:
                 case RTRANS_TYPE_SET:
-                        /* Queue event to be passed to callback */
+                        /* Send an ACK then queue event to be passed to callback */
+                        rt_ack_packet(pkt);
                         rt_queue_incoming(pkt);
                         break;
                         
