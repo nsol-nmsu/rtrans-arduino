@@ -68,28 +68,29 @@ void rt_handle_incoming(const unsigned char *data){
       1 for a radio packet
       2 for an AT response packet
 */
-uint8_t rt_read_incoming(rt_state *state, unsigned char *at_buffer, size_t at_len){
+uint8_t rt_read_incoming(unsigned char *at_buffer, size_t at_len){
 
-        state->xbee.readPacket();
+        rtrans_state.xbee.readPacket();
         
-        if(!state->xbee.getResponse().isAvailable()) {
+        if(!rtrans_state.xbee.getResponse().isAvailable()) {
                 /* no data */
 		return 0;
 	}
 	else{
-                if(state->xbee.getResponse().getApiId() == RX_16_RESPONSE){
+                if(rtrans_state.xbee.getResponse().getApiId() == RX_16_RESPONSE){
                         /* rx data */
                         Rx16Response rx16 = Rx16Response();
-                        state->xbee.getResponse().getRx16Response(rx16);
-                        
+                        rtrans_state.xbee.getResponse().getRx16Response(rx16);
                         rt_handle_incoming(rx16.getData());          
       	                return 1;
                 }
-                else if(state->xbee.getResponse().getApiId() == AT_COMMAND_RESPONSE){
+                else if(rtrans_state.xbee.getResponse().getApiId() == AT_COMMAND_RESPONSE){
                         /* AT response */
                         AtCommandResponse atResponse = AtCommandResponse();
-                        state->xbee.getResponse().getAtCommandResponse(atResponse);
-                        memcpy(at_buffer, atResponse.getValue(), at_len);
+                        rtrans_state.xbee.getResponse().getAtCommandResponse(atResponse);
+                        if(at_buffer != 0 && at_len != 0){
+                                memcpy(at_buffer, atResponse.getValue(), at_len);
+                        }
                         return 2;
                 }
                 else {
@@ -128,7 +129,7 @@ void rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
         rtrans_state.xbee.send(at_req);
         
         /* Wait for the AT response */
-        while(rt_read_incoming(&rtrans_state, at_response, 8) != 2);
+        while(rt_read_incoming(at_response, 8) != 2);
         
         // TODO: process the AT response
 
@@ -140,5 +141,7 @@ void rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
       rt: pointer to the rt_state you have initialized
 */
 void rt_loop(void){
-        
+        rt_read_incoming(0, 0);
+        // TODO: handle timeouts (generate NAK events)
+        // TODO: pop off the transmit queue
 }
