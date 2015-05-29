@@ -81,9 +81,9 @@ typedef struct rt_state_s {
 } rt_state;
 
 /* Initialization function */
-rt_state *rt_init(SoftwareSerial xbee_serial, rt_callback cb_func);
+void rt_init(SoftwareSerial xbee_serial, rt_callback cb_func);
 
 /* Loop processing function */
-void rt_loop(rt_state *rt);
+void rt_loop(void);
 
 #endif

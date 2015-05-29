@@ -109,7 +109,7 @@ uint8_t rt_read_incoming(rt_state *state, unsigned char *at_buffer, size_t at_le
     Returns:
       A pointer to the initialized rt_state object
 */
-rt_state *rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
+void rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
         uint8_t at_response[8];
         
         /* Nullify the struct */
@@ -131,8 +131,7 @@ rt_state *rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
         while(rt_read_incoming(&rtrans_state, at_response, 8) != 2);
         
         // TODO: process the AT response
-        
-        return &rtrans_state;
+
 }
 
 /** Handles all of the processing of the rtrans driver. You should be calling
@@ -140,6 +139,6 @@ rt_state *rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
     Params:
       rt: pointer to the rt_state you have initialized
 */
-void rt_loop(rt_state *rt){
+void rt_loop(void){
         
 }
