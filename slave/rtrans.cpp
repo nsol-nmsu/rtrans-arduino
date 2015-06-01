@@ -6,6 +6,24 @@ rt_state rtrans_state;
 uint8_t rtrans_tx_buffer[RTRANS_PAYLOAD_BUFFER];
 uint8_t rtrans_rx_buffer[RTRANS_PAYLOAD_BUFFER];
 
+/** Get current timestamp, postponing overflow which will break the heap.
+    Arduino will natively give us time in milliseconds, but we don't need
+    that much precision. We only need tenths of a second. An unsigned long
+    is 32 bits and would overflow in about 50 days. This routine extends the
+    overflow period to 5000 days, or almost 14 years. After that amount of time,
+    it is likely that everything will break.
+*/
+unsigned long rt_time(){
+        static unsigned long last_time = 0;
+        static unsigned long offset = 0;
+        unsigned long cur_time = millis() / 100;
+        if(cur_time < last_time){
+                offset += ((unsigned long) -1) / 100;
+        }
+        last_time = cur_time;
+        return cur_time + offset;
+}
+
 /** Handle an event which affects the state machine */
 void rt_fsm_event(uint8_t type, const void *data){
         switch(type){
@@ -135,13 +153,31 @@ void rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
 
 }
 
+/** Checks if a timeout has occurred; if so, either retransmits the packet
+    or generates a NAK event to clear the package from our buffers depending
+    on whether it has met the retx count threshold. Returns true if a packet
+    was transmitted.
+*/
+bool rt_check_timeouts(){
+        unsigned long cur_time = rt_time();
+        if(rtrans_state.tx_waiting && cur_time > rtrans_state.tx_timeout){
+                if(++rtrans_state.retx_ct > RTRANS_RETX_LIMIT){
+                        // TODO: generate NAK event
+                }
+                else{
+                        // TODO: retransmit packet
+                        return true;
+                }
+        }
+        return false;
+}
+
 /** Handles all of the processing of the rtrans driver. You should be calling
     this function once in the main arduino loop() subroutine.
-    Params:
-      rt: pointer to the rt_state you have initialized
 */
 void rt_loop(void){
         rt_read_incoming(0, 0);
-        // TODO: handle timeouts (generate NAK events)
-        // TODO: pop off the transmit queue
+        if(!rt_check_timeouts()){
+                // TODO: pop off the transmit queue
+        }
 }
