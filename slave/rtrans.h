@@ -8,7 +8,7 @@
 
 /* Retransmit limit and timeout */
 #define RTRANS_RETX_LIMIT       (4)
-#define RTRANS_RETX_TIMEOUT     (120)
+#define RTRANS_RETX_TIMEOUT     (200)
 
 /* Packet and window sizes */
 #define RTRANS_PACKET_SIZE      (100)
@@ -75,6 +75,7 @@ typedef struct rt_state_s {
         bool            tx_waiting;
         uint8_t         tx_wait_pkg;
         uint8_t         tx_wait_seg;   
+        unsigned long   tx_timeout;
         
         ringbuffer      tx_queue;
         ringbuffer      rx_queue;
