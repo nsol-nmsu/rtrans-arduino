@@ -3,8 +3,8 @@
 
 /* Local symbols */
 rt_state rtrans_state;
-uint8_t rtrans_tx_buffer[RTRANS_PAYLOAD_BUFFER];
-uint8_t rtrans_rx_buffer[RTRANS_PAYLOAD_BUFFER];
+uint8_t rtrans_tx_buffer[RTRANS_PACKET_BUFFER];
+uint8_t rtrans_rx_buffer[RTRANS_PACKET_BUFFER];
 
 /** Get current timestamp, postponing overflow which will break the heap.
     Arduino will natively give us time in milliseconds, but we don't need
@@ -28,8 +28,10 @@ unsigned long rt_time(){
 void rt_fsm_event(uint8_t type, const void *data){
         switch(type){
                 case RTRANS_TYPE_ACK:
+                        // TODO: clear the tx_waiting flag and advance the ringbuffer
                         break;
                 case RTRANS_TYPE_NAK:
+                        // TODO: clear tx_waiting and advance the ringbuffer to the end of the package
                         break;
         }
 }
@@ -138,8 +140,8 @@ void rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
         rtrans_state.xbee.setSerial(xbee_serial);
         
         /* Initialize buffers */
-        rb_init(&rtrans_state.tx_queue, rtrans_tx_buffer, RTRANS_PAYLOAD_BUFFER);
-        rb_init(&rtrans_state.rx_queue, rtrans_rx_buffer, RTRANS_PAYLOAD_BUFFER);
+        rb_init(&rtrans_state.tx_queue, rtrans_tx_buffer, RTRANS_PACKET_BUFFER);
+        rb_init(&rtrans_state.rx_queue, rtrans_rx_buffer, RTRANS_PACKET_BUFFER);
         
         /* Ask the XBee for our address */
         uint8_t at_cmd[] = {'M','Y'};
@@ -155,21 +157,22 @@ void rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
 
 /** Checks if a timeout has occurred; if so, either retransmits the packet
     or generates a NAK event to clear the package from our buffers depending
-    on whether it has met the retx count threshold. Returns true if a packet
-    was transmitted.
+    on whether it has met the retx count threshold.
 */
-bool rt_check_timeouts(){
+void rt_check_timeouts(){
+        rt_out_header dummy;
         unsigned long cur_time = rt_time();
         if(rtrans_state.tx_waiting && cur_time > rtrans_state.tx_timeout){
                 if(++rtrans_state.retx_ct > RTRANS_RETX_LIMIT){
-                        // TODO: generate NAK event
+                        // cancel the rest of the package (handle a dummy NAK)
+                        dummy.pkg_no = rtrans_state.tx_wait_pkg;
+                        dummy.seg_no = rtrans_state.tx_wait_seg;
+                        rt_fsm_event(RTRANS_TYPE_NAK, &dummy);
                 }
                 else{
                         // TODO: retransmit packet
-                        return true;
                 }
         }
-        return false;
 }
 
 /** Handles all of the processing of the rtrans driver. You should be calling
@@ -177,7 +180,8 @@ bool rt_check_timeouts(){
 */
 void rt_loop(void){
         rt_read_incoming(0, 0);
-        if(!rt_check_timeouts()){
-                // TODO: pop off the transmit queue
+        rt_check_timeouts();
+        if(!rtrans_state.tx_waiting){
+                // TODO: transmit next segment
         }
 }
