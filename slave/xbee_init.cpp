@@ -40,15 +40,14 @@ bool xbee_init(SoftwareSerial &xs){
                 "ATID3332\r",
                 "ATAP2\r",
                 "ATAC\r",
-                "ATWR\r",
-                "ATFR\r"
+                "ATCN\r"
         };
         int i;
         for(i = 0; i < 3; i++){
                 ok &= xbee_command(xs, commands[i]);
         }
         delay(1000);
-        for(i = 3; i < 10; i++){
+        for(i = 3; i < 9; i++){
                 ok &= xbee_command(xs, commands[i]);
         }
         delay(1000);
