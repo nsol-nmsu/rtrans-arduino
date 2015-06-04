@@ -62,7 +62,7 @@ typedef enum {
 
 /* Driver state and data */
 typedef struct rt_state_s {
-        XBee            xbee;
+        XBee            *xbee;
         XBeeAddress64   slave;
         XBeeAddress64   master;
         
@@ -82,7 +82,7 @@ typedef struct rt_state_s {
 } rt_state;
 
 /* Initialization function */
-void rt_init(SoftwareSerial xbee_serial, rt_callback cb_func);
+void rt_init(XBee &xbee_serial, rt_callback cb_func);
 
 /* Loop processing function */
 void rt_loop(void);

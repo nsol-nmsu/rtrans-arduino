@@ -90,24 +90,24 @@ void rt_handle_incoming(const unsigned char *data){
 */
 uint8_t rt_read_incoming(unsigned char *at_buffer, size_t at_len){
 
-        rtrans_state.xbee.readPacket();
+        rtrans_state.xbee->readPacket();
         
-        if(!rtrans_state.xbee.getResponse().isAvailable()) {
+        if(!rtrans_state.xbee->getResponse().isAvailable()) {
                 /* no data */
-		return 0;
-	}
-	else{
-                if(rtrans_state.xbee.getResponse().getApiId() == RX_16_RESPONSE){
+                return 0;
+        }
+        else{
+                if(rtrans_state.xbee->getResponse().getApiId() == RX_16_RESPONSE){
                         /* rx data */
                         Rx16Response rx16 = Rx16Response();
-                        rtrans_state.xbee.getResponse().getRx16Response(rx16);
+                        rtrans_state.xbee->getResponse().getRx16Response(rx16);
                         rt_handle_incoming(rx16.getData());          
-      	                return 1;
+                        return 1;
                 }
-                else if(rtrans_state.xbee.getResponse().getApiId() == AT_COMMAND_RESPONSE){
+                else if(rtrans_state.xbee->getResponse().getApiId() == AT_COMMAND_RESPONSE){
                         /* AT response */
                         AtCommandResponse atResponse = AtCommandResponse();
-                        rtrans_state.xbee.getResponse().getAtCommandResponse(atResponse);
+                        rtrans_state.xbee->getResponse().getAtCommandResponse(atResponse);
                         if(at_buffer != 0 && at_len != 0){
                                 memcpy(at_buffer, atResponse.getValue(), at_len);
                         }
@@ -130,23 +130,23 @@ uint8_t rt_read_incoming(unsigned char *at_buffer, size_t at_len){
     Returns:
       A pointer to the initialized rt_state object
 */
-void rt_init(SoftwareSerial xbee_serial, rt_callback cb_func){
+void rt_init(XBee &xbee, rt_callback cb_func){
         uint8_t at_response[8];
         
         /* Nullify the struct */
         memset(&rtrans_state, 0, sizeof(rt_state));
         
-        /* Initialize the XBee driver on the given serial interface */
-        rtrans_state.xbee.setSerial(xbee_serial);
+        /* Set the pointer to the XBee driver instance */
+        rtrans_state.xbee = &xbee;
         
         /* Initialize buffers */
         rb_init(&rtrans_state.tx_queue, rtrans_tx_buffer, RTRANS_PACKET_BUFFER);
         rb_init(&rtrans_state.rx_queue, rtrans_rx_buffer, RTRANS_PACKET_BUFFER);
         
         /* Ask the XBee for our address */
-        uint8_t at_cmd[] = {'M','Y'};
+        uint8_t at_cmd[2] = {'S','L'};
         AtCommandRequest at_req = AtCommandRequest(at_cmd); 
-        rtrans_state.xbee.send(at_req);
+        rtrans_state.xbee->send(at_req);
         
         /* Wait for the AT response */
         while(rt_read_incoming(at_response, 8) != 2);
