@@ -63,8 +63,8 @@ typedef enum {
 /* Driver state and data */
 typedef struct rt_state_s {
         XBee            *xbee;
-        XBeeAddress64   slave;
-        XBeeAddress64   master;
+        uint16_t        slave;
+        uint16_t        master;
         
         rt_callback     rx_callback;
         
