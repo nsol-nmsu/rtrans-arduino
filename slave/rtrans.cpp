@@ -1,3 +1,4 @@
+#include "hex.h"
 #include "rtrans.h"
 #include "ringbuffer.h"
 
@@ -132,6 +133,8 @@ uint8_t rt_read_incoming(unsigned char *at_buffer, size_t at_len){
 */
 void rt_init(XBee &xbee, rt_callback cb_func){
         uint8_t at_response[8];
+        uint8_t at_cmd_sl[2] = {'S', 'L'};
+        uint8_t at_cmd_my[2] = {'M', 'Y'};
         
         /* Nullify the struct */
         memset(&rtrans_state, 0, sizeof(rt_state));
@@ -144,14 +147,17 @@ void rt_init(XBee &xbee, rt_callback cb_func){
         rb_init(&rtrans_state.rx_queue, rtrans_rx_buffer, RTRANS_PACKET_BUFFER);
         
         /* Ask the XBee for our address */
-        uint8_t at_cmd[2] = {'S','L'};
-        AtCommandRequest at_req = AtCommandRequest(at_cmd); 
-        rtrans_state.xbee->send(at_req);
+        AtCommandRequest at_cmd_sl_req = AtCommandRequest(at_cmd_sl);
+        rtrans_state.xbee->send(at_cmd_sl_req);
         
         /* Wait for the AT response */
         while(rt_read_incoming(at_response, 8) != 2);
         
-        // TODO: process the AT response
+        /* Assign the 16-bit address */
+        rtrans_state.slave = at_response[3] | (at_response[2] << 8);
+        AtCommandRequest at_cmd_my_req = AtCommandRequest(at_cmd_my, &at_response[2], 2);
+        rtrans_state.xbee->send(at_cmd_my_req);
+        while(rt_read_incoming(0, 0) != 2);
 
 }
 
