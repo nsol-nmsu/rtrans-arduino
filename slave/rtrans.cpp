@@ -27,13 +27,31 @@ unsigned long rt_time(){
 
 /** Handle an event which affects the state machine */
 void rt_fsm_event(uint8_t type, const void *data){
+        rt_out_header pkt;
         switch(type){
-                case RTRANS_TYPE_ACK:
-                        // TODO: clear the tx_waiting flag and advance the ringbuffer
+                case RTRANS_TYPE_ACK: {
+                        // we are no longer waiting for an ACK
+                        rtrans_state.tx_waiting = false;
+                        
+                        // remove the segment from the transmit queue
+                        rb_get(&rtrans_state.tx_queue, (uint8_t *) &pkt, sizeof(rt_out_header));
+                        rb_del(&rtrans_state.tx_queue, pkt.len);
+                        
                         break;
-                case RTRANS_TYPE_NAK:
-                        // TODO: clear tx_waiting and advance the ringbuffer to the end of the package
+                }
+                case RTRANS_TYPE_NAK: {
+                        // we are no longer waiting for an ACK
+                        rtrans_state.tx_waiting = false;
+                        
+                        // remove remaining segments of the package
+                        do {
+                          rb_get(&rtrans_state.tx_queue, (uint8_t *) &pkt, sizeof(rt_out_header));
+                          rb_del(&rtrans_state.tx_queue, pkt.len);
+                          rb_peek(&rtrans_state.tx_queue, (uint8_t *) &pkt, sizeof(rt_out_header));
+                        } while(pkt.pkg_no == rtrans_state.tx_wait_pkg);
+                        
                         break;
+                }
         }
 }
 
@@ -81,6 +99,13 @@ void rt_handle_incoming(const unsigned char *data){
                         rt_fsm_event(pkt->type, pkt);
                         break;
         }
+}
+
+/** Transmit the packet at the front of the tx queue */
+void rt_tx_queued(){
+        ++rtrans_state.retx_ct;
+        rtrans_state.tx_timeout = rt_time() + RTRANS_RETX_TIMEOUT / 10;
+        // TODO: an actual transmission
 }
 
 /** Read from the XBee serial interface
@@ -158,6 +183,9 @@ void rt_init(XBee &xbee, rt_callback cb_func){
         AtCommandRequest at_cmd_my_req = AtCommandRequest(at_cmd_my, &at_response[2], 2);
         rtrans_state.xbee->send(at_cmd_my_req);
         while(rt_read_incoming(0, 0) != 2);
+        
+        /* Set no master */
+        rtrans_state.master = RTRANS_NO_MASTER;
 
 }
 
@@ -167,8 +195,7 @@ void rt_init(XBee &xbee, rt_callback cb_func){
 */
 void rt_check_timeouts(){
         rt_out_header dummy;
-        unsigned long cur_time = rt_time();
-        if(rtrans_state.tx_waiting && cur_time > rtrans_state.tx_timeout){
+        if(rtrans_state.tx_waiting && rt_time() > rtrans_state.tx_timeout){
                 if(++rtrans_state.retx_ct > RTRANS_RETX_LIMIT){
                         // cancel the rest of the package (handle a dummy NAK)
                         dummy.pkg_no = rtrans_state.tx_wait_pkg;
@@ -176,7 +203,7 @@ void rt_check_timeouts(){
                         rt_fsm_event(RTRANS_TYPE_NAK, &dummy);
                 }
                 else{
-                        // TODO: retransmit packet
+                        rt_tx_queued();
                 }
         }
 }
@@ -188,6 +215,7 @@ void rt_loop(void){
         rt_read_incoming(0, 0);
         rt_check_timeouts();
         if(!rtrans_state.tx_waiting){
-                // TODO: transmit next segment
+                rtrans_state.retx_ct = 0;
+                rt_tx_queued();
         }
 }
