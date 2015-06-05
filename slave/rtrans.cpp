@@ -28,10 +28,16 @@ unsigned long rt_time(){
 /** Handle an event which affects the state machine */
 void rt_fsm_event(uint8_t type, const void *data){
         rt_out_header pkt;
+        rt_out_header *p = (rt_out_header *) data;
+        
+        // check that this is the ack/nak we are waiting for
+        if(p->pkg_no != rtrans_state.tx_wait_pkg || p->seg_no != rtrans_state.tx_wait_seg){
+          return;
+        }
+        
+        // handle the event
         switch(type){
                 case RTRANS_TYPE_ACK: {
-                        // TODO: verify that this is actually the ACK we were waiting for
-                        
                         // we are no longer waiting for an ACK
                         rtrans_state.tx_waiting = false;
                         
@@ -42,8 +48,6 @@ void rt_fsm_event(uint8_t type, const void *data){
                         break;
                 }
                 case RTRANS_TYPE_NAK: {
-                        // TODO: verify that this is actually the NAK we were waiting for
-                       
                         // we are no longer waiting for an ACK
                         rtrans_state.tx_waiting = false;
                         
