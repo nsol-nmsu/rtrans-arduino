@@ -12,7 +12,7 @@
 
 /* Packet and window sizes */
 #define RTRANS_PACKET_SIZE      (100)
-#define RTRANS_PAYLOAD_SIZE     (RTRANS_PACKET_SIZE - sizeof(rt_out_header))
+#define RTRANS_PAYLOAD_SIZE     (RTRANS_PACKET_SIZE - sizeof(rt_out_header) - 1)
 #define RTRANS_MAX_SEGMENTS     (6)
 #define RTRANS_PACKET_BUFFER    (RTRANS_MAX_SEGMENTS * RTRANS_PACKET_SIZE)
 #define RTRANS_PAYLOAD_BUFFER   (RTRANS_MAX_SEGMENTS * RTRANS_PAYLOAD_SIZE)
@@ -36,7 +36,7 @@ typedef struct __attribute__ ((__packed__)) rt_out_header_s {
     uint16_t slave;     // slave mac
     uint16_t pkg_no;    // package number
     uint8_t  type;      // message type
-    uint8_t  pkt_ct;    // number of segments in package
+    uint8_t  seg_ct;    // number of segments in package
     uint8_t  seg_no;    // segment number
     uint8_t  len;       // payload length
 } rt_out_header;
@@ -86,5 +86,8 @@ void rt_init(XBee &xbee_serial, rt_callback cb_func);
 
 /* Loop processing function */
 void rt_loop(void);
+
+/* Transmit function */
+size_t rt_send(uint8_t type, const uint8_t *payload, size_t length);
 
 #endif

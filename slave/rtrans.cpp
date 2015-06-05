@@ -92,6 +92,9 @@ void rt_queue_incoming(const rt_out_header *pkt){
 /** Process incoming packet */
 void rt_handle_incoming(const unsigned char *data){
         const rt_out_header *pkt = (const rt_out_header *) data;
+        
+        // TODO: verify checksum
+        
         switch(pkt->type){
                 case RTRANS_TYPE_PROBE:
                 case RTRANS_TYPE_POLL:
@@ -226,4 +229,63 @@ void rt_loop(void){
                 rtrans_state.retx_ct = 0;
                 rt_tx_queued();
         }
+}
+
+/** Adds a new package to the transmit queue. Returns the total number of
+    segments to be transmitted, or 0 if the package can't be transmitted.
+*/
+size_t rt_send(uint8_t type, const uint8_t *payload, size_t length){
+        rt_out_header h;
+        size_t j, i = length, expected_segments = 0;
+        
+        /* Calculate how many segments we will need (could do this better if the atmega had a FPU,
+           probably still can do it better but I don't feel like figuring it out)
+        */
+        do{
+            i -= (i > RTRANS_PAYLOAD_SIZE) ? RTRANS_PAYLOAD_SIZE : i;
+            ++expected_segments;
+        } while(i > 0);
+        
+        /* Calculate how much space we need in the buffer */
+        i = length + expected_segments * (sizeof(rt_out_header) + 1);
+        
+        /* Make sure that (1) the segment count is within the maximum, and (2) there is enough free space */
+        if(expected_segments > RTRANS_MAX_SEGMENTS || i > rb_free(&rtrans_state.tx_queue)){
+            return 0;
+        }
+        
+        /* Prepare the header */
+        h.master = rtrans_state.master;
+        h.slave  = rtrans_state.slave;
+        h.pkg_no = rtrans_state.tx_pkg_no++;
+        h.type   = type;
+        h.seg_ct = expected_segments;
+        
+        /* Construct segments and put them in the buffer */
+        for(i = 0; i < expected_segments; i++){
+             uint8_t cs = 0xff;
+          
+             /* Segment-specific header fields */
+             h.len = (length > RTRANS_PAYLOAD_SIZE) ? RTRANS_PAYLOAD_SIZE : length;
+             h.seg_no = i;
+             
+             /* Calculate checksum (header part) */
+             for(j = 0; j < sizeof(rt_out_header); j++){
+                 cs -= ((uint8_t *) &h)[j];
+             }
+             
+             /* Calculate checksum (payload part) */
+             for(j = 0; j < h.len; j++){
+                 cs -= payload[(i * RTRANS_PAYLOAD_SIZE) + j];
+             }
+             
+             /* Put it all in the queue */
+             rb_put(&rtrans_state.tx_queue, (uint8_t *) &h, sizeof(rt_out_header));
+             rb_put(&rtrans_state.tx_queue, &payload[i * RTRANS_PAYLOAD_SIZE], h.len);
+             rb_put(&rtrans_state.tx_queue, &cs, sizeof(uint8_t));
+             
+             length -= h.len;
+        }
+        
+        return expected_segments;
 }
