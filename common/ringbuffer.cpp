@@ -59,3 +59,7 @@ size_t rb_put(ringbuffer *rb, const uint8_t *buffer, size_t n){
                 return i;
         }
 }
+
+size_t rb_free(const ringbuffer *rb){
+        return rb->size - rb->avail;
+}
