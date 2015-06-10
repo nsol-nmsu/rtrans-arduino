@@ -6,6 +6,7 @@
 rt_state rtrans_state;
 uint8_t rtrans_tx_buffer[RTRANS_PACKET_BUFFER];
 uint8_t rtrans_rx_buffer[RTRANS_PACKET_BUFFER];
+uint8_t rtrans_cb_buffer[RTRANS_PAYLOAD_SIZE];
 
 /** Get current timestamp, postponing overflow which will break the heap.
     Arduino will natively give us time in milliseconds, but we don't need
@@ -63,11 +64,6 @@ void rt_fsm_event(uint8_t type, const void *data){
         }
 }
 
-/** Send an ACK (immediate) */
-void rt_ack_packet(const rt_out_header *pkt){
-        // TODO
-}
-
 /** Add an event to the callback queue */
 void rt_queue_incoming(const rt_out_header *pkt){
         // Build abbreviated header
@@ -92,15 +88,24 @@ void rt_queue_incoming(const rt_out_header *pkt){
 /** Process incoming packet */
 void rt_handle_incoming(const unsigned char *data){
         const rt_out_header *pkt = (const rt_out_header *) data;
+        uint8_t i, acc = 0;
         
-        // TODO: verify checksum
+        // verify checksum
+        for(i = 0; i < sizeof(rt_out_header) + pkt->len + 1; i++){
+                acc += data[i];
+        }
         
+        if(acc != 0xff){
+                // TODO: report error (bad checksum)
+                return;
+        }
+        
+        // handle packet
         switch(pkt->type){
                 case RTRANS_TYPE_PROBE:
                 case RTRANS_TYPE_POLL:
                 case RTRANS_TYPE_SET:
-                        /* Send an ACK then queue event to be passed to callback */
-                        rt_ack_packet(pkt);
+                        /* Just queue the packet to be passed to the callback */
                         rt_queue_incoming(pkt);
                         break;
                         
@@ -112,11 +117,22 @@ void rt_handle_incoming(const unsigned char *data){
         }
 }
 
-/** Transmit the packet at the front of the tx queue */
+/** Transmit the segment at the front of the tx queue */
 void rt_tx_queued(){
+        uint8_t pkt[RTRANS_PACKET_SIZE];
+        rt_out_header *hdr = (rt_out_header *) pkt;
+
+        // peek the message - we don't want to remove it from the buffer yet
+        rb_peek(&rtrans_state.tx_queue, &pkt[0], sizeof(rt_out_header));
+        rb_peek(&rtrans_state.tx_queue, &pkt[sizeof(rt_out_header)], hdr->len + 1);
+
+        // some housekeeping - increment retx count and set the timeout
         ++rtrans_state.retx_ct;
         rtrans_state.tx_timeout = rt_time() + RTRANS_RETX_TIMEOUT / 10;
-        // TODO: an actual transmission
+        
+        // send the segment
+        Tx16Request tx = Tx16Request(hdr->master, pkt, sizeof(rt_out_header) + hdr->len + 1);
+        rtrans_state.xbee->send(tx);
 }
 
 /** Read from the XBee serial interface
@@ -158,6 +174,31 @@ uint8_t rt_read_incoming(unsigned char *at_buffer, size_t at_len){
         
         return 0;
 
+}
+
+/** If there is a packet waiting in the rx queue,
+    pop it off and run the callback
+*/
+void rt_rx_pop(){
+        rt_in_header pkt;
+
+        /* we need at least one header in the ringbuffer */
+        if(rtrans_state.rx_queue.avail >= sizeof(rt_in_header)){
+                /* get the header */
+                rb_get(&rtrans_state.rx_queue, (uint8_t *) &pkt, sizeof(rt_in_header));
+                
+                /* check that the payload is available */
+                if(rtrans_state.rx_queue.avail >= pkt.len){
+                        /* copy the payload */
+                        rb_get(&rtrans_state.rx_queue, rtrans_cb_buffer, pkt.len);
+                        
+                        /* run the callback*/
+                        rtrans_state.rx_callback(&pkt, rtrans_cb_buffer);
+                }
+                else{
+                        // TODO: handle error (ringbuffer underflow)
+                }
+        }
 }
 
 /** Initializes the XBee and the rtrans driver
@@ -229,6 +270,7 @@ void rt_loop(void){
                 rtrans_state.retx_ct = 0;
                 rt_tx_queued();
         }
+        rt_rx_pop();
 }
 
 /** Adds a new package to the transmit queue. Returns the total number of
