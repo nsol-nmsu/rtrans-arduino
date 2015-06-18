@@ -54,35 +54,41 @@ typedef struct __attribute__ ((__packed__)) rt_in_header_s {
 typedef void (*rt_callback)(rt_in_header *header, uint8_t payload[]);
 
 /* Driver state and data */
-typedef struct rt_state_s {
-        XBee            *xbee;
-        uint16_t        slave;
-        uint16_t        master;
-        
-        rt_callback     rx_callback;
-        
-        uint8_t         retx_ct;
-        uint8_t         tx_pkg_no;
-        
-        bool            tx_waiting;
-        uint8_t         tx_wait_pkg;
-        uint8_t         tx_wait_seg;   
-        unsigned long   tx_timeout;
-        
-        ringbuffer      tx_queue;
-        ringbuffer      rx_queue;
-} rt_state;
+class rt_state {
 
-/* Initialization function */
-void rt_init(XBee *xbee_serial, rt_callback cb_func);
-
-/* Loop processing function */
-void rt_loop(void);
-
-/* Transmit function */
-size_t rt_send(uint8_t type, const uint8_t *payload, size_t length);
-
-/* Set a new master and send join request */
-void rt_join(uint16_t addr);
+private:
+        XBee          &xbee;
+        uint16_t      slave;
+        uint16_t      master;
+        rt_callback   rx_callback;
+        uint8_t       retx_ct;
+        uint8_t       tx_pkg_no;
+        bool          tx_waiting;
+        uint8_t       tx_wait_pkg;
+        uint8_t       tx_wait_seg;
+        unsigned long tx_timeout;
+        ringbuffer    tx_queue;
+        ringbuffer    rx_queue;
+        uint8_t       rtrans_tx_buffer[RTRANS_PACKET_BUFFER];
+        uint8_t       rtrans_rx_buffer[RTRANS_ABBREV_BUFFER];
+        
+        static unsigned long rt_time();
+        void rt_fsm_event(uint8_t type, const void *data);
+        void rt_queue_incoming(const rt_out_header *pkt);
+        void rt_handle_incoming(const unsigned char *data);
+        void rt_tx_queued();
+        uint8_t rt_read_incoming(unsigned char *at_buffer, size_t at_len);
+        void rt_rx_pop();
+        void rt_check_timeouts();
+        
+        
+public:
+        rt_state(XBee &xbee, rt_callback cb_func);
+        void rt_init();
+        void rt_loop();
+        size_t rt_send(uint8_t type, const uint8_t *payload, size_t length);
+        void rt_join(uint16_t addr);
+        
+};
 
 #endif
