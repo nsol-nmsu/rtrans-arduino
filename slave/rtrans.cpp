@@ -194,7 +194,8 @@ void rt_state::rt_rx_pop(){
     Returns:
       A pointer to the initialized rt_state object
 */
-rt_state::rt_state(XBee &xbee, rt_callback cb_func) : xbee(xbee){
+rt_state::rt_state(SoftwareSerial &xs, rt_callback cb_func){
+        this->xbee.setSerial(xs);
         this->rx_callback = cb_func;
         this->master = RTRANS_NO_MASTER;
         rb_init(&this->tx_queue, rtrans_tx_buffer, RTRANS_PACKET_BUFFER);

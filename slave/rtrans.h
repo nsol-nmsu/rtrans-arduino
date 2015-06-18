@@ -57,7 +57,7 @@ typedef void (*rt_callback)(rt_in_header *header, uint8_t payload[]);
 class rt_state {
 
 private:
-        XBee          &xbee;
+        XBee          xbee;
         uint16_t      slave;
         uint16_t      master;
         rt_callback   rx_callback;
@@ -83,7 +83,7 @@ private:
         
         
 public:
-        rt_state(XBee &xbee, rt_callback cb_func);
+        rt_state(SoftwareSerial &xs, rt_callback cb_func);
         void rt_init();
         void rt_loop();
         size_t rt_send(uint8_t type, const uint8_t *payload, size_t length);
