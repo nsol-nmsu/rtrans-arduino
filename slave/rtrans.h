@@ -13,9 +13,10 @@
 /* Packet and window sizes */
 #define RTRANS_PACKET_SIZE      (100)
 #define RTRANS_PAYLOAD_SIZE     (RTRANS_PACKET_SIZE - sizeof(rt_out_header) - 1)
+#define RTRANS_ABBREV_SIZE      (RTRANS_PAYLOAD_SIZE + sizeof(rt_in_header))
 #define RTRANS_MAX_SEGMENTS     (6)
 #define RTRANS_PACKET_BUFFER    (RTRANS_MAX_SEGMENTS * RTRANS_PACKET_SIZE)
-#define RTRANS_PAYLOAD_BUFFER   (RTRANS_MAX_SEGMENTS * RTRANS_PAYLOAD_SIZE)
+#define RTRANS_ABBREV_BUFFER    (RTRANS_ABBREV_SIZE)
 
 /* Special uuid for no master configured */
 #define RTRANS_NO_MASTER        (0xffff)
@@ -50,15 +51,7 @@ typedef struct __attribute__ ((__packed__)) rt_in_header_s {
 } rt_in_header;
 
 /* Callback function */
-typedef void (*rt_callback)(rt_in_header header, uint8_t payload[]);
-
-/* Driver FSM states */
-typedef enum {
-        RT_STATE_INIT,   // not paired to a master node
-        RT_STATE_JOIN,   // waiting for ACK to JOIN message
-        RT_STATE_IDLE,   // idle, waiting for POLL
-        RT_STATE_DATA    // waiting for ACK from a DATA message
-} rt_fsm;
+typedef void (*rt_callback)(rt_in_header *header, uint8_t payload[]);
 
 /* Driver state and data */
 typedef struct rt_state_s {
@@ -68,7 +61,6 @@ typedef struct rt_state_s {
         
         rt_callback     rx_callback;
         
-        rt_fsm          state;
         uint8_t         retx_ct;
         uint8_t         tx_pkg_no;
         
@@ -82,12 +74,15 @@ typedef struct rt_state_s {
 } rt_state;
 
 /* Initialization function */
-void rt_init(XBee &xbee_serial, rt_callback cb_func);
+void rt_init(XBee *xbee_serial, rt_callback cb_func);
 
 /* Loop processing function */
 void rt_loop(void);
 
 /* Transmit function */
 size_t rt_send(uint8_t type, const uint8_t *payload, size_t length);
+
+/* Set a new master and send join request */
+void rt_join(uint16_t addr);
 
 #endif

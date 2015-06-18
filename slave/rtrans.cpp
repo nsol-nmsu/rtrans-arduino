@@ -5,8 +5,7 @@
 /* Local symbols */
 rt_state rtrans_state;
 uint8_t rtrans_tx_buffer[RTRANS_PACKET_BUFFER];
-uint8_t rtrans_rx_buffer[RTRANS_PACKET_BUFFER];
-uint8_t rtrans_cb_buffer[RTRANS_PAYLOAD_SIZE];
+uint8_t rtrans_rx_buffer[RTRANS_ABBREV_BUFFER];
 
 /** Get current timestamp, postponing overflow which will break the heap.
     Arduino will natively give us time in milliseconds, but we don't need
@@ -144,12 +143,8 @@ void rt_tx_queued(){
 uint8_t rt_read_incoming(unsigned char *at_buffer, size_t at_len){
 
         rtrans_state.xbee->readPacket();
-        
-        if(!rtrans_state.xbee->getResponse().isAvailable()) {
-                /* no data */
-                return 0;
-        }
-        else{
+  
+        if(rtrans_state.xbee->getResponse().isAvailable()) {
                 if(rtrans_state.xbee->getResponse().getApiId() == RX_16_RESPONSE){
                         /* rx data */
                         Rx16Response rx16 = Rx16Response();
@@ -166,11 +161,7 @@ uint8_t rt_read_incoming(unsigned char *at_buffer, size_t at_len){
                         }
                         return 2;
                 }
-                else {
-                        return 0; 
-                }
         }
-        
         
         return 0;
 
@@ -181,6 +172,7 @@ uint8_t rt_read_incoming(unsigned char *at_buffer, size_t at_len){
 */
 void rt_rx_pop(){
         rt_in_header pkt;
+        uint8_t cb_buffer[RTRANS_PAYLOAD_SIZE];
 
         /* we need at least one header in the ringbuffer */
         if(rtrans_state.rx_queue.avail >= sizeof(rt_in_header)){
@@ -190,10 +182,10 @@ void rt_rx_pop(){
                 /* check that the payload is available */
                 if(rtrans_state.rx_queue.avail >= pkt.len){
                         /* copy the payload */
-                        rb_get(&rtrans_state.rx_queue, rtrans_cb_buffer, pkt.len);
+                        rb_get(&rtrans_state.rx_queue, cb_buffer, pkt.len);
                         
                         /* run the callback*/
-                        rtrans_state.rx_callback(&pkt, rtrans_cb_buffer);
+                        rtrans_state.rx_callback(&pkt, cb_buffer);
                 }
                 else{
                         // TODO: handle error (ringbuffer underflow)
@@ -208,7 +200,7 @@ void rt_rx_pop(){
     Returns:
       A pointer to the initialized rt_state object
 */
-void rt_init(XBee &xbee, rt_callback cb_func){
+void rt_init(XBee *xbee, rt_callback cb_func){
         uint8_t at_response[8];
         uint8_t at_cmd_sl[2] = {'S', 'L'};
         uint8_t at_cmd_my[2] = {'M', 'Y'};
@@ -217,7 +209,7 @@ void rt_init(XBee &xbee, rt_callback cb_func){
         memset(&rtrans_state, 0, sizeof(rt_state));
         
         /* Set the pointer to the XBee driver instance */
-        rtrans_state.xbee = &xbee;
+        rtrans_state.xbee = xbee;
         
         /* Initialize buffers */
         rb_init(&rtrans_state.tx_queue, rtrans_tx_buffer, RTRANS_PACKET_BUFFER);
@@ -266,11 +258,12 @@ void rt_check_timeouts(){
 void rt_loop(void){
         rt_read_incoming(0, 0);
         rt_check_timeouts();
-        if(!rtrans_state.tx_waiting){
+        if(!rtrans_state.tx_waiting && rtrans_state.tx_queue.avail > 0){
                 rtrans_state.retx_ct = 0;
                 rt_tx_queued();
         }
         rt_rx_pop();
+        
 }
 
 /** Adds a new package to the transmit queue. Returns the total number of
@@ -330,4 +323,9 @@ size_t rt_send(uint8_t type, const uint8_t *payload, size_t length){
         }
         
         return expected_segments;
+}
+
+void rt_join(uint16_t addr){
+        rtrans_state.master = addr;
+        rt_send(RTRANS_TYPE_JOIN, 0, 0);
 }
