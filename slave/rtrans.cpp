@@ -37,7 +37,7 @@ void rt_state::rt_fsm_event(uint8_t type, const void *data){
                         
                         // remove the segment from the transmit queue
                         rb_get(&this->tx_queue, (uint8_t *) &pkt, sizeof(rt_out_header));
-                        rb_del(&this->tx_queue, pkt.len);
+                        rb_del(&this->tx_queue, pkt.len + 1);
                         
                         break;
                 }
@@ -48,7 +48,7 @@ void rt_state::rt_fsm_event(uint8_t type, const void *data){
                         // remove remaining segments of the package
                         do {
                           rb_get(&this->tx_queue, (uint8_t *) &pkt, sizeof(rt_out_header));
-                          rb_del(&this->tx_queue, pkt.len);
+                          rb_del(&this->tx_queue, pkt.len + 1);
                           rb_peek(&this->tx_queue, (uint8_t *) &pkt, sizeof(rt_out_header));
                         } while(pkt.pkg_no == this->tx_wait_pkg);
                         
@@ -118,13 +118,19 @@ void rt_state::rt_tx_queued(){
         // peek the message - we don't want to remove it from the buffer yet
         rb_peek(&this->tx_queue, &pkt[0], sizeof(rt_out_header));
         rb_peek(&this->tx_queue, &pkt[sizeof(rt_out_header)], hdr->len + 1);
-
-        // some housekeeping - increment retx count and set the timeout
         ++this->retx_ct;
         this->tx_timeout = rt_time() + RTRANS_RETX_TIMEOUT / 10;
+
+        this->tx_waiting = true;
+        this->tx_wait_seg = hdr->seg_no;
+        this->tx_wait_pkg = hdr->pkg_no;
         
-        // send the segment
-        Tx16Request tx = Tx16Request(hdr->master, pkt, sizeof(rt_out_header) + hdr->len + 1);
+        rt_send_now(hdr);
+}
+        
+/** Send raw packet without modifying state */
+void rt_state::rt_send_now(const rt_out_header *pkt){
+        Tx16Request tx = Tx16Request(pkt->master, (uint8_t *) pkt, sizeof(rt_out_header) + pkt->len + 1);
         this->xbee.send(tx);
 }
 

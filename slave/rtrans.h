@@ -16,7 +16,7 @@
 #define RTRANS_ABBREV_SIZE      (RTRANS_PAYLOAD_SIZE + sizeof(rt_in_header))
 #define RTRANS_MAX_SEGMENTS     (6)
 #define RTRANS_PACKET_BUFFER    (RTRANS_MAX_SEGMENTS * RTRANS_PACKET_SIZE)
-#define RTRANS_ABBREV_BUFFER    (RTRANS_ABBREV_SIZE)
+#define RTRANS_ABBREV_BUFFER    (RTRANS_ABBREV_SIZE * 2)
 
 /* Special uuid for no master configured */
 #define RTRANS_NO_MASTER        (0xffff)
@@ -80,6 +80,7 @@ private:
         uint8_t rt_read_incoming(unsigned char *at_buffer, size_t at_len);
         void rt_rx_pop();
         void rt_check_timeouts();
+        void rt_send_now(const rt_out_header *pkt);
         
         
 public:
